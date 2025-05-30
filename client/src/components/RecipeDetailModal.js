@@ -15,7 +15,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Link,
+  Link, // Use Mui Link
   useTheme
 } from '@mui/material';
 import {
@@ -27,8 +27,11 @@ import {
   ListAlt,
   CheckCircleOutline,
   ArrowRightAlt,
-  HealthAndSafety // Added the correct icon import
+  HealthAndSafety
 } from '@mui/icons-material';
+
+// Access the dynamic backend URL environment variable
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const style = {
   position: 'absolute',
@@ -52,10 +55,8 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
   const [error, setError] = React.useState('');
   const theme = useTheme();
 
-  // --- Move stepRegex definition here, outside formatInstructions ---
   // Regex to handle various numbering/bullet styles for instructions
   const stepRegex = /(\d+\.\s*|\*\s*|•\s*|\-\s*)/;
-  // --- End of move ---
 
 
   React.useEffect(() => {
@@ -66,17 +67,30 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
       return;
     }
 
+    // Add a check for the backend URL before fetching
+    if (!BACKEND_URL) {
+         setError("Frontend configuration error: Backend URL is not set. Cannot fetch recipe details.");
+         return; // Stop the effect if URL is missing
+    }
+
+
     const fetchRecipeDetails = async () => {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(`http://localhost:5000/api/recipes/details/${recipeId}`);
+        // --- Use the dynamic BACKEND_URL here ---
+        console.log(`Modal: Fetching recipe details for ID ${recipeId} from ${BACKEND_URL}/api/recipes/details/${recipeId}`); // Log the actual URL
+        const response = await fetch(`${BACKEND_URL}/api/recipes/details/${recipeId}`);
+        // --- End Use dynamic URL ---
+
         if (!response.ok) {
             // Attempt to read error message from response body
             const errorData = await response.json().catch(() => ({ message: 'Failed to fetch recipe details.' }));
+            // Include status in the error message for easier debugging
             throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+         console.log(`Modal: Recipe details for ID ${recipeId} received.`, data); // Log success
         if (data.success) {
           setRecipe(data.recipe);
         } else {
@@ -84,7 +98,8 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
           setError(data.error || 'Failed to fetch recipe details.');
         }
       } catch (err) {
-        console.error("Failed to fetch recipe details:", err);
+        console.error("Modal: Failed to fetch recipe details:", err);
+         // Use the specific error message or a generic one including status
         setError(`Error loading recipe: ${err.message}`);
       } finally {
         setLoading(false);
@@ -95,7 +110,7 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
 
   }, [open, recipeId]); // Effect runs when modal opens or recipeId changes
 
-  // Helper function to format instructions - now stepRegex is in the outer scope
+  // Helper function to format instructions
   const formatInstructions = (instructionsHtml) => {
     if (!instructionsHtml) return null;
     // Basic HTML to text conversion and splitting by steps if numbered
@@ -178,6 +193,7 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
           <Close />
         </IconButton>
 
+        {/* Show loading or error */}
         {loading && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <CircularProgress sx={{ mb: 2 }} />
@@ -191,6 +207,7 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
           </Alert>
         )}
 
+        {/* Show recipe content only if recipe data is available and not loading/error */}
         {recipe && !loading && !error && (
           <>
             {/* Recipe Image */}
@@ -236,7 +253,6 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
               )}
               {/* Add other info like health score, diets etc. */}
               {recipe.healthScore > 0 && (
-                 // Removed the extra curly braces here
                  <Chip icon={<HealthAndSafety />} label={`Health Score: ${recipe.healthScore}`} />
               )}
                {recipe.diets && recipe.diets.map(diet => (
@@ -329,6 +345,14 @@ const RecipeDetailModal = ({ recipeId, open, onClose }) => {
                 </Accordion>
             )}
 
+             {/* Source Link - Added check if sourceUrl exists */}
+            {recipe.sourceUrl && (
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                <Link href={recipe.sourceUrl} target="_blank" rel="noopener" underline="hover">
+                  View Full Recipe on Source Website
+                </Link>
+              </Box>
+            )}
           </>
         )}
       </Box>
