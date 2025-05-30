@@ -30,8 +30,15 @@ import {
   CalendarToday,
   Search,
   ExpandMore,
+  // Ensure other necessary icons are imported if used in this component
+  // e.g., Fastfood, FitnessCenter, Public, ListAlt, ShoppingBasketOutlined, ChevronRight
+  Fastfood, FitnessCenter, Public, ListAlt, ShoppingBasketOutlined, ChevronRight // Added imports based on previous versions
 } from '@mui/icons-material';
 import axios from 'axios';
+
+// Access the dynamic backend URL environment variable
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
 
 // Define options for select inputs
 const daysOptions = [
@@ -104,6 +111,12 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
 
 
   const generateMealPlan = async () => {
+    // Add a check for the backend URL here too
+    if (!BACKEND_URL) {
+        setError("Frontend configuration error: Backend URL is not set. Meal planning is unavailable.");
+        return; // Stop execution if URL is missing
+    }
+
     setLoading(true);
     setError('');
     setMealPlan(null); // Clear previous plan
@@ -117,7 +130,8 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/meal-plan/generate', {
+      // Use the dynamic BACKEND_URL here
+      const response = await axios.post(`${BACKEND_URL}/api/meal-plan/generate`, {
         days: days,
         mealsPerDay: selectedMeals,
         diet: selectedDiets,
@@ -134,7 +148,8 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
       }
     } catch (err) {
       console.error("Meal Plan API Error:", err.response?.data || err.message);
-      setError(err.response?.data?.error || 'An error occurred while generating the meal plan.');
+      // Use the user-friendly error message from the backend if available
+      setError(err.response?.data?.error || `An error occurred while generating the meal plan. Status: ${err.response?.status || 'N/A'}`);
     } finally {
       setLoading(false);
     }
@@ -151,7 +166,8 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
         overflow: 'hidden'
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 3 } }}>
+      {/* Added icons for better visual */}
+       <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 3 } }}>
         <CalendarToday sx={{ fontSize: { xs: 24, md: 32 }, mr: { xs: 1, md: 2 }, color: theme.palette.info.main }} />
         <Typography variant="h4" fontWeight={600}>
           Plan Your Meals
@@ -159,10 +175,11 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
       </Box>
 
       {/* Input Controls */}
+      {/* Added icons to labels for better visual */}
       <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 3, md: 4 } }}>
         <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth>
-            <InputLabel id="days-label">Plan for</InputLabel>
+            <InputLabel id="days-label"><CalendarToday sx={{fontSize: 18, verticalAlign: 'middle', mr: 0.5}}/> Plan for</InputLabel>
             <Select
               labelId="days-label"
               id="days-select"
@@ -181,7 +198,7 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
 
         <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth>
-            <InputLabel id="meals-label">Meals per Day</InputLabel>
+            <InputLabel id="meals-label"><RestaurantMenu sx={{fontSize: 18, verticalAlign: 'middle', mr: 0.5}}/> Meals per Day</InputLabel>
             <Select
               labelId="meals-label"
               id="meals-select"
@@ -209,7 +226,7 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
 
         <Grid item xs={12} sm={6} md={3}>
            <FormControl fullWidth>
-            <InputLabel id="diet-label">Dietary Restrictions</InputLabel>
+            <InputLabel id="diet-label"><FitnessCenter sx={{fontSize: 18, verticalAlign: 'middle', mr: 0.5}}/> Dietary Restrictions</InputLabel>
             <Select
               labelId="diet-label"
               id="diet-select"
@@ -237,7 +254,7 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
 
         <Grid item xs={12} sm={6} md={3}>
            <FormControl fullWidth>
-            <InputLabel id="cuisine-label">Cuisine Preferences</InputLabel>
+            <InputLabel id="cuisine-label"><Public sx={{fontSize: 18, verticalAlign: 'middle', mr: 0.5}}/> Cuisine Preferences</InputLabel>
             <Select
               labelId="cuisine-label"
               id="cuisine-select"
@@ -271,7 +288,7 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
         variant="contained"
         size="large"
         onClick={generateMealPlan}
-        disabled={loading || selectedMeals.length === 0}
+        disabled={loading || selectedMeals.length === 0 || !BACKEND_URL} // Disable if URL is missing
         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Search />}
         sx={{
           width: '100%',
@@ -350,24 +367,37 @@ const MealPlanner = ({ onRecipeClick }) => { // Receive a function to open recip
            ))}
 
 
-           {groceryList && groceryList.length > 0 && (
-              <Box sx={{ mt: { xs: 3, md: 4 } }}>
-                <Typography variant="h5" gutterBottom fontWeight={600}>
-                  🛒 Grocery List
-                </Typography>
-                 <List dense sx={{ columns: { xs: 1, sm: 2, md: 3 } }}> {/* Multi-column list */}
-                    {groceryList.map((item, index) => (
-                       <ListItem key={index} disablePadding>
-                          <ListItemText primary={`• ${item}`} />
-                       </ListItem>
-                    ))}
-                 </List>
-              </Box>
-           )}
-           {groceryList && groceryList.length === 0 && (
-                <Alert severity="info" sx={{mt: { xs: 2, md: 3 }}}>
-                    No ingredients gathered for the grocery list. This might happen if no recipes were found for the suggested meals.
-                </Alert>
+           {/* Grocery List */}
+           {/* Add check if the plan has ANY recipes found before showing grocery list messages/list */}
+           {mealPlan.some(day => day.meals.some(meal => meal.recipe)) ? (
+               groceryList && groceryList.length > 0 ? (
+                  <Box sx={{ mt: { xs: 3, md: 4 } }}>
+                    <Typography variant="h5" gutterBottom fontWeight={600}>
+                      🛒 Grocery List
+                    </Typography>
+                     {/* Added ShoppingBasketOutlined icon */}
+                     <Typography variant="subtitle1" color="textSecondary" sx={{display: 'flex', alignItems: 'center', mb: 2}}>
+                         <ShoppingBasketOutlined sx={{mr: 1}}/> Items needed for your plan:
+                     </Typography>
+                     <List dense sx={{ columns: { xs: 1, sm: 2, md: 3 } }}> {/* Multi-column list */}
+                        {groceryList.map((item, index) => (
+                           <ListItem key={index} disablePadding>
+                              <ListItemText primary={`• ${item}`} />
+                           </ListItem>
+                        ))}
+                     </List>
+                  </Box>
+               ) : (
+                  // If grocery list is empty but some recipes were found
+                   <Alert severity="info" sx={{ mt: { xs: 2, md: 3 } }}>
+                       No ingredients were added to the grocery list. This might happen if the Spoonacular API did not return ingredient details for the found recipes.
+                   </Alert>
+               )
+           ) : (
+              // If NO recipes were found for ANY meal slot
+              <Alert severity="warning" sx={{ mt: { xs: 2, md: 3 } }}>
+                   No recipes were found matching the AI's suggestions and your criteria. The grocery list cannot be generated. Please try generating the plan again with different criteria.
+               </Alert>
            )}
 
         </Box>
